@@ -139,6 +139,15 @@ pointer-events:none;z-index:0}
 <div class="inner">
   <div class="page-divider"><div class="page-div-line"></div><div class="page-div-gem"></div><div class="page-div-line"></div></div>
 
+  <!-- MEMORY WALL -->
+  <div class="wall-title fade-in">✨ <em>Memory Wall</em></div>
+  <span class="wall-count fade-in" id="wishWallCount">Loading wishes...</span>
+  <div class="wishes-grid" id="wishesGrid">
+    <div class="loading-spinner">Loading wishes... 🌸</div>
+  </div>
+
+  <div class="page-divider" style="margin-bottom:48px"><div class="page-div-line"></div><div class="page-div-gem"></div><div class="page-div-line"></div></div>
+
   <!-- WISH FORM -->
   <div class="wish-form-card fade-in" id="wishFormCard">
     <div class="wf-row">
@@ -175,13 +184,6 @@ pointer-events:none;z-index:0}
       </label>
     </div>
     <button class="wf-send-btn" id="wfSendBtn" onclick="submitWish()">💌 Send My Wish</button>
-  </div>
-
-  <!-- MEMORY WALL -->
-  <div class="wall-title fade-in">✨ <em>Memory Wall</em></div>
-  <span class="wall-count fade-in" id="wishWallCount">Loading wishes...</span>
-  <div class="wishes-grid" id="wishesGrid">
-    <div class="loading-spinner">Loading wishes... 🌸</div>
   </div>
 
   <!-- SUB FEATURES -->
