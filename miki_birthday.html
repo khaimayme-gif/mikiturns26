@@ -2005,7 +2005,7 @@ function renderGrid(filter){
         <div class="iw-card-name">${g.icon} ${g.name}</div>
         <div class="iw-card-desc">${g.desc}</div>
         ${isClaimed ? `<div class="iw-claimed-by">🎀 Claimed by ${escHtml(c.name)}</div>` : ''}
-        ${g.link ? `<a class="iw-shop-btn" href="${g.link}" target="_blank" rel="noopener">🛍️ View on Lazada</a>` : ''}
+        ${g.link ? `<a class="iw-shop-btn" href="${g.link}" target="_blank" rel="noopener">🛍️ View Gift</a>` : ''}
         <button class="iw-claim-btn${isClaimed?' disabled':''}" data-id="${g.id}">
           ${isClaimed ? '💖 Already Claimed' : '🎁 Claim This Gift'}
         </button>
