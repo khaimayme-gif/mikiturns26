@@ -540,6 +540,8 @@ footer{padding:52px 24px;text-align:center;border-top:1px solid rgba(243,227,234
 .iw-card-desc{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:14px;color:#555555;line-height:1.65;flex:1}
 .iw-claimed-by{font-family:'Poppins',sans-serif;font-size:11px;color:#C4607A;font-weight:500;margin-top:4px}
 
+.iw-shop-btn{display:block;width:100%;margin-top:10px;padding:11px;background:rgba(255,255,255,.9);border:1px solid rgba(212,175,55,.4);border-radius:999px;color:#9a7220;font-family:'Poppins',sans-serif;font-weight:600;font-size:11px;letter-spacing:.15em;text-transform:uppercase;text-align:center;text-decoration:none;transition:all .3s ease}
+.iw-shop-btn:hover{background:rgba(212,175,55,.1);border-color:rgba(212,175,55,.7);transform:translateY(-1px)}
 .iw-claim-btn{width:100%;margin-top:10px;padding:13px;background:linear-gradient(135deg,#F5B7D1,#F8D7E5);border:none;border-radius:999px;color:#6B2040;font-family:'Poppins',sans-serif;font-weight:600;font-size:11px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:all .3s ease;box-shadow:0 4px 14px rgba(245,183,209,.3)}
 .iw-claim-btn:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(245,183,209,.45)}
 .iw-claim-btn.disabled{background:linear-gradient(135deg,#F3E3EA,#F8EEF5);color:#A08898;cursor:default;box-shadow:none;transform:none}
@@ -1899,7 +1901,7 @@ function launchRsvpSparkles(){
 
 /* ── Data ───────────────────────────────────────────────── */
 const BASE_GIFTS = [
-  { id:'plushie',    cat:'cute',      icon:'🧸', name:'Plushie',                  desc:'Growing older, not growing up.',                                    img:'plushie.jpeg',      tag:'Cutest'   },
+  { id:'plushie',    cat:'cute',      icon:'🧸', name:'Plushie',                  desc:'Growing older, not growing up.',                                    img:'plushie.jpeg',      tag:'Cutest',  link:'https://www.lazada.co.th/products/aoduoyaya-large-teddy-bear-giant-teddy-bear-fur-bear-90120140160cm-gift-for-girlfriend-embrace-the-softness-i5846886965-s24901177546.html'  },
   { id:'dior-lip',   cat:'beauty',    icon:'💄', name:'Dior Lip Addict 599 – Adiorable', desc:'My lips deserve a little luxury.',                           img:'Dior.jpeg',         tag:'Dream'    },
   { id:'high-heels', cat:'fashion',   icon:'👠', name:'High Heels',               desc:'Shoes Size: EU36, Walking into 26 in style.',                                         img:'heels.jpg',         tag:'Glam'     },
   { id:'backpack',   cat:'fashion',   icon:'🎒', name:'Backpack',                 desc:'For all my little adventures.',                                     img:'backpack.jpeg',     tag:'Practical'},
@@ -2003,6 +2005,7 @@ function renderGrid(filter){
         <div class="iw-card-name">${g.icon} ${g.name}</div>
         <div class="iw-card-desc">${g.desc}</div>
         ${isClaimed ? `<div class="iw-claimed-by">🎀 Claimed by ${escHtml(c.name)}</div>` : ''}
+        ${g.link ? `<a class="iw-shop-btn" href="${g.link}" target="_blank" rel="noopener">🛍️ View on Lazada</a>` : ''}
         <button class="iw-claim-btn${isClaimed?' disabled':''}" data-id="${g.id}">
           ${isClaimed ? '💖 Already Claimed' : '🎁 Claim This Gift'}
         </button>
