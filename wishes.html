@@ -130,9 +130,9 @@ pointer-events:none;z-index:0}
 
 <div class="page-hero">
   <span class="page-eyebrow">✨ June 15, 2026 ✨</span>
-  <h1 class="page-title">It's <em>Miki's</em> Birthday!</h1>
-  <span class="page-script">Leave her a wish 💌</span>
-  <p class="page-subtitle">Hey! It's my birthday and I'd love a little note from you.<br>Write me a message — it means the world to me. 🤍</p>
+  <h1 class="page-title" id="heroTitle">It's <em>Miki's</em> Birthday!</h1>
+  <span class="page-script" id="heroScript">Leave her a wish 💌</span>
+  <p class="page-subtitle" id="heroSub">Hey! It's my birthday and I'd love a little note from you.<br>Write me a message — it means the world to me. 🤍</p>
 </div>
 
 <div class="inner">
@@ -511,6 +511,20 @@ const obs=new IntersectionObserver(entries=>{
   entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')});
 },{threshold:.1});
 document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
+
+/* ── Birthday date check ────────────────────────────── */
+(function(){
+  const now = new Date();
+  const bday = new Date(2026, 5, 15); // June 15, 2026
+  const isBirthday = now >= bday;
+  if(!isBirthday){
+    const diff = bday - now;
+    const days = Math.floor(diff / (1000*60*60*24));
+    document.getElementById('heroTitle').innerHTML = `<em>Miki's</em> Birthday is Coming Soon 🎀`;
+    document.getElementById('heroScript').textContent = `${days} day${days!==1?'s':''} to go ✨`;
+    document.getElementById('heroSub').innerHTML = `She's turning 26 on June 15th — leave her an early wish<br>so she wakes up to a wall full of love. 🤍`;
+  }
+})();
 
 /* ── Boot ───────────────────────────────────────────── */
 renderWishWall();
