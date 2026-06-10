@@ -249,15 +249,25 @@ const sb = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZXN0eHB1dmp0bXl0d2R5aHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODc4MzgsImV4cCI6MjA5NjU2MzgzOH0.7zYYadjbKVq7P1N823vKZEwVArI7BI4IWxo9_tEOXIw'
 );
 
-/* ── localStorage helpers (reactions only) ── */
-const REACT_KEY  = 'miki_reactions_v2';
+/* ── Constants ───────────────────────────────────────── */
+const REACT_ME_KEY = 'miki_reactions_me_v2'; // tracks which emoji THIS device reacted per wish
 const REACTIONS  = [['❤️','So Sweet'],['😂','Funny'],['🥹','Emotional'],['🌸','Miki Core']];
 const CARD_ROTATIONS = [-2.5,-1.5,-1,0,1,1.5,2.5,2,-.8,.8];
 
 let wishPhotoData = null;
+let reactionCounts = {}; // { wish_id: { '❤️': 3, '😂': 1, ... } }
 
-function loadReacts() { try{return JSON.parse(localStorage.getItem(REACT_KEY)||'{}')}catch{return{}} }
-function saveReacts(o){ localStorage.setItem(REACT_KEY,JSON.stringify(o)) }
+function getMyReacts(){ try{return JSON.parse(localStorage.getItem(REACT_ME_KEY)||'{}')}catch{return{}} }
+function saveMyReacts(o){ localStorage.setItem(REACT_ME_KEY,JSON.stringify(o)) }
+
+async function loadReactionCounts(){
+  const { data } = await sb.from('reactions').select('wish_id, emoji');
+  reactionCounts = {};
+  (data||[]).forEach(r => {
+    if(!reactionCounts[r.wish_id]) reactionCounts[r.wish_id]={};
+    reactionCounts[r.wish_id][r.emoji] = (reactionCounts[r.wish_id][r.emoji]||0)+1;
+  });
+}
 
 /* ── Photo preview ──────────────────────────────────── */
 function wishPhotoPreview(inp){
@@ -313,6 +323,7 @@ async function submitWish(){
 
 /* ── Load & render wish wall from Supabase ──────────── */
 async function renderWishWall(){
+  await loadReactionCounts();
   const { data: wishes, error } = await sb
     .from('wishes')
     .select('*')
@@ -329,14 +340,14 @@ async function renderWishWall(){
     return;
   }
 
-  const reacts = loadReacts();
+  const myReacts = getMyReacts();
   grid.innerHTML = wishes.map((w,i)=>{
     const rot = CARD_ROTATIONS[i%CARD_ROTATIONS.length];
-    const rKey = 'w_'+w.id;
-    const myReact = reacts[rKey+'_me']||null;
-    const reactCounts = REACTIONS.map(([emoji,label],ri)=>{
-      const count=(reacts[rKey+'_'+ri]||0);
-      return `<button class="wcard-react-btn${myReact===ri?' reacted':''}" onclick="toggleReact('${rKey}',${ri},this)" title="${label}">${emoji} <span>${count>0?count:''}</span></button>`;
+    const wishReacts = reactionCounts[w.id]||{};
+    const myEmoji = myReacts[w.id]||null;
+    const reactCounts = REACTIONS.map(([emoji,label])=>{
+      const count = wishReacts[emoji]||0;
+      return `<button class="wcard-react-btn${myEmoji===emoji?' reacted':''}" onclick="toggleReact('${w.id}','${emoji}',this)" title="${label}">${emoji} <span>${count>0?count:''}</span></button>`;
     }).join('');
     const photoHtml = w.photo?`<img class="wcard-photo loaded" src="${w.photo}" alt="photo"/>`:'';
     return `<div class="wcard" style="transform:rotate(${rot}deg)">
@@ -358,25 +369,34 @@ sb.channel('wishes-channel')
   })
   .subscribe();
 
-/* ── Reactions (local per device) ──────────────────── */
-function toggleReact(rKey,ri,btn){
-  const reacts=loadReacts();
-  const meKey=rKey+'_me';
-  const prev=reacts[meKey];
-  const countKey=rKey+'_'+ri;
-  if(prev===ri){
-    reacts[meKey]=null;
-    reacts[countKey]=Math.max(0,(reacts[countKey]||1)-1);
+/* ── Reactions (Supabase) ───────────────────────────── */
+async function toggleReact(wishId, emoji, btn){
+  const myReacts = getMyReacts();
+  const prev = myReacts[wishId]||null;
+
+  if(!reactionCounts[wishId]) reactionCounts[wishId]={};
+
+  if(prev === emoji){
+    // un-react
+    await sb.from('reactions').delete().eq('wish_id', wishId).eq('emoji', emoji);
+    reactionCounts[wishId][emoji] = Math.max(0,(reactionCounts[wishId][emoji]||1)-1);
+    myReacts[wishId] = null;
     btn.classList.remove('reacted');
   } else {
-    if(prev!==null&&prev!==undefined) reacts[rKey+'_'+prev]=Math.max(0,(reacts[rKey+'_'+prev]||1)-1);
-    reacts[meKey]=ri;
-    reacts[countKey]=(reacts[countKey]||0)+1;
+    // remove old reaction first
+    if(prev){
+      await sb.from('reactions').delete().eq('wish_id', wishId).eq('emoji', prev);
+      reactionCounts[wishId][prev] = Math.max(0,(reactionCounts[wishId][prev]||1)-1);
+    }
+    // add new reaction
+    await sb.from('reactions').insert({ wish_id: wishId, emoji });
+    reactionCounts[wishId][emoji] = (reactionCounts[wishId][emoji]||0)+1;
+    myReacts[wishId] = emoji;
     btn.classList.add('reacted');
     btn.style.transform='scale(1.2)';
     setTimeout(()=>btn.style.transform='',200);
   }
-  saveReacts(reacts);
+  saveMyReacts(myReacts);
   renderWishWall();
 }
 
@@ -525,9 +545,12 @@ document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
 })();
 
 /* ── Boot ───────────────────────────────────────────── */
-renderWishWall();
-renderWordCloud();
-updateFutCount();
+(async()=>{
+  await loadReactionCounts();
+  renderWishWall();
+  renderWordCloud();
+  updateFutCount();
+})();
 </script>
 </body>
 </html>
