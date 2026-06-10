@@ -651,6 +651,7 @@ footer{padding:52px 24px;text-align:center;border-top:1px solid rgba(243,227,234
 @media(max-width:600px){.iw-grid{grid-template-columns:1fr 1fr}.iw-modal{padding:28px 20px}.iw-admin-panel{padding:24px 18px}}
 @media(max-width:400px){.iw-grid{grid-template-columns:1fr}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -1136,6 +1137,12 @@ footer{padding:52px 24px;text-align:center;border-top:1px solid rgba(243,227,234
 </footer>
 
 <script>
+/* ── Supabase ───────────────────────────────────────── */
+const sb = supabase.createClient(
+  'https://tgestxpuvjtmytwdyhte.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZXN0eHB1dmp0bXl0d2R5aHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODc4MzgsImV4cCI6MjA5NjU2MzgzOH0.7zYYadjbKVq7P1N823vKZEwVArI7BI4IWxo9_tEOXIw'
+);
+
 const bColors=['#f2c4ce','#fde8ec','#d4a5b0','#c9a96e','#b8a0c8','#e8c990'];
 const bWrap=document.getElementById('bWrap');
 for(let i=0;i<16;i++){
@@ -1838,10 +1845,9 @@ yesBtn.addEventListener('click', () => {
     setTimeout(() => nameInp.classList.remove('shake'), 500);
     return;
   }
-  // Save to localStorage
-  const rsvps = JSON.parse(localStorage.getItem('rsvp_v2') || '[]');
-  rsvps.push({ name, status:'YES', ts: Date.now() });
-  localStorage.setItem('rsvp_v2', JSON.stringify(rsvps));
+  // Save to Supabase
+  sb.from('rsvp').insert({ name, attending: 'YES' });
+  localStorage.setItem('rsvp_name', name);
 
   // Celebration
   launchRsvpConfetti();
@@ -1881,12 +1887,9 @@ function launchRsvpSparkles(){
 }
 
 /* ── Check existing RSVP on load ───────────────────────── */
-(function checkExisting(){
-  const rsvps = JSON.parse(localStorage.getItem('rsvp_v2') || '[]');
-  if(rsvps.length > 0){
-    const last = rsvps[rsvps.length - 1];
-    nameInp.value = last.name;
-  }
+(async function checkExisting(){
+  const stored = localStorage.getItem('rsvp_name');
+  if(stored) nameInp.value = stored;
 })();
 
 })();
@@ -1919,17 +1922,21 @@ const ACHIEVEMENTS = [
 
 const MEDALS = ['🥇','🥈','🥉','💖','🌸'];
 const ADMIN_PW = 'miki26';
-const LS_CLAIMS = 'iw_claims_v2';
 const LS_CUSTOM = 'iw_custom_v2';
 
 /* ── State ──────────────────────────────────────────────── */
-let claims   = JSON.parse(localStorage.getItem(LS_CLAIMS) || '{}');
+let claims   = {}; // populated from Supabase on load
 let custom   = JSON.parse(localStorage.getItem(LS_CUSTOM) || '[]');
-let pending  = null; // gift id currently being claimed
+let pending  = null;
 let adminUnlocked = false;
 let titleTaps = 0, titleTapTimer;
 
-function saveState(){ localStorage.setItem(LS_CLAIMS, JSON.stringify(claims)); }
+async function loadClaims(){
+  const { data } = await sb.from('gift_claims').select('gift_id, name, message, created_at');
+  claims = {};
+  (data||[]).forEach(r => { claims[r.gift_id] = { name: r.name, message: r.message, ts: r.created_at }; });
+  renderAll();
+}
 function saveCustom(){ localStorage.setItem(LS_CUSTOM, JSON.stringify(custom)); }
 
 function allGifts(){ return [...BASE_GIFTS, ...custom]; }
@@ -2078,13 +2085,20 @@ function closeModal(){
 modalClose.addEventListener('click', closeModal);
 modalOverlay.addEventListener('click', e => { if(e.target===modalOverlay) closeModal(); });
 
-modalConfirm.addEventListener('click', () => {
+modalConfirm.addEventListener('click', async () => {
   const name = modalName.value.trim();
   if(!name){ modalName.style.borderColor='rgba(240,107,122,.6)'; modalName.focus(); setTimeout(()=>modalName.style.borderColor='',1500); return; }
   if(!pending) return;
-  claims[pending] = { name, message: modalMsg.value.trim(), ts: Date.now() };
-  saveState();
-  const g = allGifts().find(x => x.id === pending);
+  const giftId = pending;
+  const message = modalMsg.value.trim();
+  modalConfirm.disabled = true;
+  modalConfirm.textContent = 'Saving...';
+  const { error } = await sb.from('gift_claims').insert({ gift_id: giftId, name, message });
+  modalConfirm.disabled = false;
+  modalConfirm.textContent = '💖 Claim This Gift';
+  if(error){ alert('Something went wrong. Please try again.'); return; }
+  claims[giftId] = { name, message, ts: new Date().toISOString() };
+  const g = allGifts().find(x => x.id === giftId);
   closeModal();
   renderAll();
   triggerConfetti();
@@ -2200,10 +2214,14 @@ function renderAdminClaims(){
     adminClaimsBody.appendChild(tr);
   });
   adminClaimsBody.querySelectorAll('.iw-admin-action-btn.remove').forEach(btn => {
-    btn.addEventListener('click', () => { delete claims[btn.dataset.id]; saveState(); renderAll(); renderAdminClaims(); });
+    btn.addEventListener('click', async () => {
+      await sb.from('gift_claims').delete().eq('gift_id', btn.dataset.id);
+      delete claims[btn.dataset.id];
+      renderAll(); renderAdminClaims();
+    });
   });
   adminClaimsBody.querySelectorAll('.iw-admin-action-btn.received').forEach(btn => {
-    btn.addEventListener('click', () => { if(claims[btn.dataset.id]) claims[btn.dataset.id].received=true; saveState(); renderAdminClaims(); });
+    btn.addEventListener('click', () => { if(claims[btn.dataset.id]) claims[btn.dataset.id].received=true; renderAdminClaims(); });
   });
 }
 
@@ -2242,7 +2260,7 @@ document.getElementById('adm-export-btn').addEventListener('click', () => {
 function escHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 /* ── Boot ────────────────────────────────────────────────── */
-renderAll();
+loadClaims();
 
 })();
 </script>
