@@ -71,6 +71,20 @@ pointer-events:none;z-index:0}
 .wcard-reactions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
 .wcard-react-btn{background:rgba(252,238,245,.5);border:1px solid var(--border);border-radius:20px;padding:4px 10px;font-size:11px;cursor:pointer;transition:all .2s ease;color:var(--muted);font-family:'Poppins',sans-serif;display:flex;align-items:center;gap:4px}
 .wcard-react-btn:hover,.wcard-react-btn.reacted{background:rgba(245,183,209,.25);border-color:rgba(245,183,209,.6);color:var(--text)}
+.wcard-reply-btn{background:none;border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-size:10px;color:var(--muted);letter-spacing:.15em;padding:4px 0;margin-top:6px;transition:color .2s ease;text-transform:uppercase}
+.wcard-reply-btn:hover{color:var(--rose)}
+.wcard-replies{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.wcard-reply{background:rgba(252,238,245,.5);border-left:2px solid var(--blush);border-radius:0 8px 8px 0;padding:8px 12px}
+.wcard-reply-from{font-family:'Poppins',sans-serif;font-size:10px;font-weight:600;color:var(--rose);margin-bottom:3px}
+.wcard-reply-msg{font-family:'Cormorant Garamond',serif;font-size:13px;color:var(--text);line-height:1.6;font-style:italic}
+.wcard-reply-form{margin-top:10px;display:none;flex-direction:column;gap:6px}
+.wcard-reply-form.open{display:flex}
+.wcard-reply-input{background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Poppins',sans-serif;font-size:12px;color:var(--text);outline:none;transition:border-color .2s ease}
+.wcard-reply-input:focus{border-color:rgba(245,183,209,.7)}
+.wcard-reply-textarea{background:rgba(255,255,255,.9);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Poppins',sans-serif;font-size:12px;color:var(--text);outline:none;resize:none;min-height:64px;transition:border-color .2s ease;line-height:1.5}
+.wcard-reply-textarea:focus{border-color:rgba(245,183,209,.7)}
+.wcard-reply-submit{padding:8px 16px;background:linear-gradient(135deg,#F5B7D1,#F8D7E5);border:none;border-radius:999px;color:#6B2040;font-family:'Poppins',sans-serif;font-weight:600;font-size:10px;letter-spacing:.15em;text-transform:uppercase;cursor:pointer;transition:all .25s ease;align-self:flex-end}
+.wcard-reply-submit:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(245,183,209,.4)}
 .wcard-empty{grid-column:1/-1;text-align:center;padding:56px 20px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:17px;color:var(--muted)}
 .loading-spinner{grid-column:1/-1;text-align:center;padding:40px;font-family:'Cormorant Garamond',serif;font-style:italic;font-size:15px;color:var(--muted)}
 .wishes-sub-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:48px}
@@ -340,6 +354,11 @@ async function renderWishWall(){
     return;
   }
 
+  // load replies for all wishes
+  const { data: allReplies } = await sb.from('replies').select('*').order('created_at',{ascending:true});
+  const repliesByWish = {};
+  (allReplies||[]).forEach(r=>{ if(!repliesByWish[r.wish_id]) repliesByWish[r.wish_id]=[]; repliesByWish[r.wish_id].push(r); });
+
   const myReacts = getMyReacts();
   grid.innerHTML = wishes.map((w,i)=>{
     const rot = CARD_ROTATIONS[i%CARD_ROTATIONS.length];
@@ -350,12 +369,26 @@ async function renderWishWall(){
       return `<button class="wcard-react-btn${myEmoji===emoji?' reacted':''}" onclick="toggleReact('${w.id}','${emoji}',this)" title="${label}">${emoji} <span>${count>0?count:''}</span></button>`;
     }).join('');
     const photoHtml = w.photo?`<img class="wcard-photo loaded" src="${w.photo}" alt="photo"/>`:'';
+    const wishReplies = repliesByWish[w.id]||[];
+    const repliesHtml = wishReplies.length ? `<div class="wcard-replies">${wishReplies.map(r=>`
+      <div class="wcard-reply">
+        <div class="wcard-reply-from">💬 ${escHtml(r.name)}</div>
+        <div class="wcard-reply-msg">${escHtml(r.message)}</div>
+      </div>`).join('')}</div>` : '';
+    const replyCount = wishReplies.length;
     return `<div class="wcard" style="transform:rotate(${rot}deg)">
       ${photoHtml}
       <div class="wcard-from">💌 From: ${escHtml(w.name)}</div>
       <div class="wcard-rel">${escHtml(w.rel)}${w.ts?' · '+w.ts:''}</div>
       <div class="wcard-msg">"${escHtml(w.message)}"</div>
       <div class="wcard-reactions">${reactCounts}</div>
+      ${repliesHtml}
+      <button class="wcard-reply-btn" onclick="toggleReplyForm('${w.id}',this)">💬 ${replyCount>0?replyCount+' repl'+(replyCount>1?'ies':'y')+' · ':''}Reply</button>
+      <div class="wcard-reply-form" id="reply-form-${w.id}">
+        <input class="wcard-reply-input" id="reply-name-${w.id}" placeholder="Your name" maxlength="40">
+        <textarea class="wcard-reply-textarea" id="reply-msg-${w.id}" placeholder="Write a reply..." maxlength="300"></textarea>
+        <button class="wcard-reply-submit" onclick="submitReply('${w.id}')">Send 💌</button>
+      </div>
     </div>`;
   }).join('');
 
@@ -397,6 +430,29 @@ async function toggleReact(wishId, emoji, btn){
     setTimeout(()=>btn.style.transform='',200);
   }
   saveMyReacts(myReacts);
+  renderWishWall();
+}
+
+/* ── Replies ────────────────────────────────────────── */
+function toggleReplyForm(wishId, btn){
+  const form = document.getElementById('reply-form-'+wishId);
+  const isOpen = form.classList.contains('open');
+  form.classList.toggle('open', !isOpen);
+  if(!isOpen) document.getElementById('reply-name-'+wishId).focus();
+}
+
+async function submitReply(wishId){
+  const name = document.getElementById('reply-name-'+wishId).value.trim();
+  const msg  = document.getElementById('reply-msg-'+wishId).value.trim();
+  if(!name || !msg) return;
+  const btn = document.querySelector(`#reply-form-${wishId} .wcard-reply-submit`);
+  btn.disabled = true; btn.textContent = 'Sending...';
+  const { error } = await sb.from('replies').insert({ wish_id: wishId, name, message: msg });
+  btn.disabled = false; btn.textContent = 'Send 💌';
+  if(error){ console.error(error); return; }
+  document.getElementById('reply-name-'+wishId).value='';
+  document.getElementById('reply-msg-'+wishId).value='';
+  document.getElementById('reply-form-'+wishId).classList.remove('open');
   renderWishWall();
 }
 
