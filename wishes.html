@@ -249,19 +249,13 @@ const sb = createClient(
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnZXN0eHB1dmp0bXl0d2R5aHRlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODc4MzgsImV4cCI6MjA5NjU2MzgzOH0.7zYYadjbKVq7P1N823vKZEwVArI7BI4IWxo9_tEOXIw'
 );
 
-/* ── localStorage helpers (words, future, reactions) ── */
-const WORD_KEY   = 'miki_words_v2';
-const FUTURE_KEY = 'miki_future_v2';
+/* ── localStorage helpers (reactions only) ── */
 const REACT_KEY  = 'miki_reactions_v2';
 const REACTIONS  = [['❤️','So Sweet'],['😂','Funny'],['🥹','Emotional'],['🌸','Miki Core']];
 const CARD_ROTATIONS = [-2.5,-1.5,-1,0,1,1.5,2.5,2,-.8,.8];
 
 let wishPhotoData = null;
 
-function loadWords()  { try{return JSON.parse(localStorage.getItem(WORD_KEY)||'[]')}catch{return[]} }
-function saveWords(a) { localStorage.setItem(WORD_KEY,JSON.stringify(a)) }
-function loadFuture() { try{return JSON.parse(localStorage.getItem(FUTURE_KEY)||'[]')}catch{return[]} }
-function saveFuture(a){ localStorage.setItem(FUTURE_KEY,JSON.stringify(a)) }
 function loadReacts() { try{return JSON.parse(localStorage.getItem(REACT_KEY)||'{}')}catch{return{}} }
 function saveReacts(o){ localStorage.setItem(REACT_KEY,JSON.stringify(o)) }
 
@@ -403,23 +397,24 @@ function renderLeaderboard(wishes){
   ).join('');
 }
 
-/* ── Word cloud (localStorage) ──────────────────────── */
-function submitWord(){
-  const word=document.getElementById('wcWord').value.trim();
-  if(!word)return;
-  const words=loadWords();
-  words.push({word:word.charAt(0).toUpperCase()+word.slice(1).toLowerCase(),name:document.getElementById('wcName').value.trim()});
-  saveWords(words);
+/* ── Word cloud (Supabase) ──────────────────────────── */
+async function submitWord(){
+  const raw = document.getElementById('wcWord').value.trim();
+  if(!raw) return;
+  const word = raw.charAt(0).toUpperCase()+raw.slice(1).toLowerCase();
+  const name = document.getElementById('wcName').value.trim();
   document.getElementById('wcWord').value='';
   document.getElementById('wcName').value='';
+  await sb.from('words').insert({ word, name: name||null });
   renderWordCloud();
 }
-function renderWordCloud(){
-  const words=loadWords();
-  const wrap=document.getElementById('wordCloudWrap');
-  if(!words.length){wrap.innerHTML='<span style="color:rgba(107,107,107,.5);font-family:Cormorant Garamond,serif;font-style:italic;font-size:14px">Words will appear here ✨</span>';return;}
+async function renderWordCloud(){
+  const wrap = document.getElementById('wordCloudWrap');
+  const { data } = await sb.from('words').select('word');
+  const words = data || [];
+  if(!words.length){ wrap.innerHTML='<span style="color:rgba(107,107,107,.5);font-family:Cormorant Garamond,serif;font-style:italic;font-size:14px">Words will appear here ✨</span>'; return; }
   const freq={};
-  words.forEach(({word})=>{freq[word]=(freq[word]||0)+1});
+  words.forEach(({word})=>{ freq[word]=(freq[word]||0)+1 });
   const max=Math.max(...Object.values(freq));
   const colors=['#C4607A','#D4AF37','#2D2D2D','#F5B7D1','#A04060','#6B2040'];
   wrap.innerHTML=Object.entries(freq).map(([word,count])=>{
@@ -430,17 +425,16 @@ function renderWordCloud(){
   }).join('');
 }
 
-/* ── Future messages (localStorage) ────────────────── */
-function submitFuture(){
-  const name=document.getElementById('futName').value.trim();
-  const msg =document.getElementById('futMsg').value.trim();
-  if(!name||!msg){shakeEl('futName');return;}
-  const future=loadFuture();
-  future.push({name,msg,ts:new Date().toISOString()});
-  saveFuture(future);
+/* ── Future messages (Supabase) ─────────────────────── */
+async function submitFuture(){
+  const name = document.getElementById('futName').value.trim();
+  const msg  = document.getElementById('futMsg').value.trim();
+  if(!name||!msg){ shakeEl('futName'); return; }
+  const { error } = await sb.from('future_messages').insert({ name, message: msg });
+  if(error){ console.error(error); return; }
   document.getElementById('futName').value='';
   document.getElementById('futMsg').value='';
-  document.getElementById('futCount').textContent=future.length;
+  updateFutCount();
   const el=document.getElementById('wishSuccess');
   el.querySelector('.wish-success-title').textContent='Message Locked! 🔒';
   el.querySelector('.wish-success-sub').textContent='Future Miki will be so touched.';
@@ -450,6 +444,10 @@ function submitFuture(){
     el.querySelector('.wish-success-title').textContent='Wish Sent!';
     el.querySelector('.wish-success-sub').textContent="Your wish has been added to Miki's memory book. Thank you for making her day special.";
   },3200);
+}
+async function updateFutCount(){
+  const { count } = await sb.from('future_messages').select('*',{count:'exact',head:true});
+  document.getElementById('futCount').textContent = count || 0;
 }
 
 /* ── Toast ──────────────────────────────────────────── */
@@ -529,7 +527,7 @@ document.querySelectorAll('.fade-in').forEach(el=>obs.observe(el));
 /* ── Boot ───────────────────────────────────────────── */
 renderWishWall();
 renderWordCloud();
-document.getElementById('futCount').textContent = loadFuture().length;
+updateFutCount();
 </script>
 </body>
 </html>
