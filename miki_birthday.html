@@ -162,7 +162,8 @@
 :root{--black:#1a1a1a;--gold:#D4AF37;--gold-light:#e8d080;--blush:#F5B7D1;--baby-pink:#FCEEF5;--white:#2D2D2D;--glass:rgba(255,255,255,0.85);--glass-border:rgba(243,227,234,0.9);--text-muted:#6B6B6B;--border-pink:#F3E3EA;--accent-pink:#F8D7E5;--page-bg:#FFF9FB}
 html{scroll-behavior:smooth}
 body{background:#FFF9FB;color:#2D2D2D;font-family:'Poppins',sans-serif;font-weight:400;overflow-x:hidden}
-body::after{content:'';position:fixed;inset:0;background-image:url url("images/myphoto1.jpg");
+body::after{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");opacity:.012;pointer-events:none;z-index:9999}
+
 .balloons-wrap{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .balloon{position:absolute;bottom:-130px;border-radius:50% 50% 50% 50% / 40% 40% 60% 60%;animation:floatUp linear infinite;opacity:0}
 .balloon::after{content:'';position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);width:1px;height:20px;background:rgba(245,183,209,0.5)}
